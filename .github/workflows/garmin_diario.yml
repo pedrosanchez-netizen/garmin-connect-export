@@ -1,7 +1,7 @@
 name: Mi Robot Garmin
 on:
   schedule:
-    - cron: '0 07 * * *'
+    - cron: '0 09 * * *'
   workflow_dispatch:
 
 permissions:
@@ -22,7 +22,7 @@ jobs:
       - name: Instalar herramientas
         run: pip install garminconnect
 
-      - name: Ejecutar Extracción con Sesión
+      - name: Ejecutar Extracción
         env:
           GARMIN_EMAIL: ${{ secrets.GARMIN_EMAIL }}
           GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
@@ -31,34 +31,27 @@ jobs:
           import os
           from garminconnect import Garmin
           from datetime import date
-          import shutil
-
-          email = os.getenv('GARMIN_EMAIL')
-          password = os.getenv('GARMIN_PASSWORD')
-          token_store = '.garmin_tokens'
-          
-          if not os.path.exists(token_store):
-              os.makedirs(token_store)
 
           try:
-              # Intentamos entrar usando la sesión guardada si existe
-              client = Garmin(email, password, is_cn=False, prompt_mfa=None, token_store=token_store)
+              # Conexión estándar
+              client = Garmin(os.getenv('GARMIN_EMAIL'), os.getenv('GARMIN_PASSWORD'))
               client.login()
               
+              # Pedimos los datos de hoy
               stats = client.get_stats(date.today().isoformat())
+              
+              # Guardamos en el archivo
               with open('mis_datos_garmin.txt', 'w') as f:
                   f.write(str(stats))
-              print('¡Éxito! Datos extraídos.')
+              print('¡Éxito! Datos guardados en el archivo.')
           except Exception as e:
-              print(f'Error detallado: {e}')
-              if '429' in str(e):
-                  print('Garmin nos ha bloqueado temporalmente por exceso de intentos. Hay que esperar 24h.')
+              print(f'Error: {e}')
               exit(1)
           "
-      - name: Guardar datos y sesión
+      - name: Guardar en GitHub
         run: |
           git config --global user.name 'GarminRobot'
           git config --global user.email 'robot@github.com'
-          git add mis_datos_garmin.txt .garmin_tokens/ || true
-          git commit -m 'Actualización con sesión' || echo 'Sin cambios'
+          git add mis_datos_garmin.txt
+          git commit -m 'Actualización de datos' || echo 'Sin cambios'
           git push
